@@ -87,6 +87,36 @@ final class DSPPipelineTests: XCTestCase {
     XCTAssertLessThanOrEqual(peak, ceiling + 0.000_01)
   }
 
+  func testClubPresetAddsControlledLowEndWithoutBreakingCeiling() {
+    let settings = SoundPreset.club.settings
+    let lowBass = DSPPipeline.equalizerResponseDB(
+      at: 64,
+      sampleRate: 48_000,
+      settings: settings
+    )
+    let midrange = DSPPipeline.equalizerResponseDB(
+      at: 500,
+      sampleRate: 48_000,
+      settings: settings
+    )
+
+    XCTAssertGreaterThan(lowBass, midrange + 2)
+
+    var samples = makeStereoSignal(frames: 8_192) { index in
+      let value = sin(Float(index) * 0.12) * 0.9
+      return (value, value * 0.92)
+    }
+    let frameCount = samples.count / 2
+    samples.withUnsafeMutableBufferPointer {
+      DSPPipeline(sampleRate: 48_000, settings: settings)
+        .processInterleaved($0.baseAddress!, frameCount: frameCount)
+    }
+    XCTAssertLessThanOrEqual(
+      samples.lazy.map(abs).max() ?? 0,
+      DSPPipeline.dbToLinear(settings.outputCeilingDB) + 0.000_01
+    )
+  }
+
   func testFlatEqualizerResponseIsZeroDecibels() {
     let settings = DSPSettings.neutral
     for frequency: Float in [20, 32, 100, 1_000, 8_000, 20_000] {

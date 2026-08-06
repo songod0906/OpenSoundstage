@@ -6,9 +6,10 @@ permanent audio driver.
 
 <img src="Resources/AppIcon.png" width="128" alt="OpenSoundstage app icon">
 
-The app includes three starting presets and a complete 10-band equalizer:
+The app includes four starting presets and a complete 10-band equalizer:
 
 - **Whole** adds weight, clarity, stereo width, and controlled gain.
+- **Club** adds focused low-end punch, restrained low-mid space, and controlled drive.
 - **Wide** opens the stereo image and lifts high-frequency detail.
 - **Gentle** uses lighter processing for long listening sessions.
 
@@ -42,7 +43,7 @@ Developer ID certificate and notarize the app.
 1. Stop other system audio processors.
 2. Open `dist/OpenSoundstage.app`.
 3. Select a preset.
-4. Adjust the equalizer, stereo width, or input gain if necessary.
+4. Adjust the equalizer, stereo width, input gain, or soft drive if necessary.
 5. Select **Start sound**.
 6. Allow system audio access if macOS asks for it.
 7. Select **Stop sound** before you use another audio enhancer.

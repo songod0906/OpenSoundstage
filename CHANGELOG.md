@@ -4,6 +4,21 @@ All important product changes appear in this file.
 
 The project uses [Semantic Versioning](https://semver.org/).
 
+## 0.3.0 - 2026-08-06
+
+### Added
+
+- Responsive single-window DJ mixer interface with no scrolling
+- Club preset with focused low-end punch and bounded soft drive
+- Direct Width, Boost, and Drive master controls
+- Stereo peak and RMS meter bars beside the post-DSP waveform
+
+### Changed
+
+- Reflowed analysis, equalizer, and master controls for compact, medium, and wide windows
+- Replaced fixed-height workstation cards with a unified adaptive mixer console
+- Reduced the usable minimum window from 900×720 to 760×560
+
 ## 0.2.0 - 2026-08-06
 
 ### Added
