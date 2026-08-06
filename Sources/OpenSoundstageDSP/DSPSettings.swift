@@ -2,13 +2,46 @@
 
 import Foundation
 
+public enum EqualizerBand: Int, CaseIterable, Codable, Identifiable, Sendable {
+  case hz32
+  case hz64
+  case hz125
+  case hz250
+  case hz500
+  case hz1000
+  case hz2000
+  case hz4000
+  case hz8000
+  case hz16000
+
+  public var id: Int { rawValue }
+
+  public var frequency: Float {
+    [32, 64, 125, 250, 500, 1_000, 2_000, 4_000, 8_000, 16_000][rawValue]
+  }
+
+  public var label: String {
+    switch self {
+    case .hz32: "32"
+    case .hz64: "64"
+    case .hz125: "125"
+    case .hz250: "250"
+    case .hz500: "500"
+    case .hz1000: "1k"
+    case .hz2000: "2k"
+    case .hz4000: "4k"
+    case .hz8000: "8k"
+    case .hz16000: "16k"
+    }
+  }
+}
+
 public struct DSPSettings: Codable, Equatable, Sendable {
+  public static let equalizerRange: ClosedRange<Float> = -12...12
+
   public var width: Float
   public var inputGainDB: Float
-  public var lowShelfDB: Float
-  public var bodyDB: Float
-  public var presenceDB: Float
-  public var airDB: Float
+  public var equalizerGainsDB: [Float]
   public var compressionThresholdDB: Float
   public var compressionRatio: Float
   public var saturation: Float
@@ -17,10 +50,7 @@ public struct DSPSettings: Codable, Equatable, Sendable {
   public init(
     width: Float = 1.32,
     inputGainDB: Float = 2.2,
-    lowShelfDB: Float = 2.0,
-    bodyDB: Float = -0.7,
-    presenceDB: Float = 1.0,
-    airDB: Float = 1.3,
+    equalizerGainsDB: [Float] = [1.2, 1.8, 1.5, 0.3, -0.7, -0.2, 0.7, 1.0, 1.3, 1.0],
     compressionThresholdDB: Float = -18.0,
     compressionRatio: Float = 2.0,
     saturation: Float = 0.12,
@@ -28,28 +58,89 @@ public struct DSPSettings: Codable, Equatable, Sendable {
   ) {
     self.width = width
     self.inputGainDB = inputGainDB
-    self.lowShelfDB = lowShelfDB
-    self.bodyDB = bodyDB
-    self.presenceDB = presenceDB
-    self.airDB = airDB
+    self.equalizerGainsDB = Self.normalized(equalizerGainsDB)
     self.compressionThresholdDB = compressionThresholdDB
     self.compressionRatio = compressionRatio
     self.saturation = saturation
     self.outputCeilingDB = outputCeilingDB
   }
 
+  public subscript(band: EqualizerBand) -> Float {
+    get { equalizerGainsDB[band.rawValue] }
+    set {
+      equalizerGainsDB[band.rawValue] = min(
+        max(newValue, Self.equalizerRange.lowerBound), Self.equalizerRange.upperBound)
+    }
+  }
+
+  public mutating func flattenEqualizer() {
+    equalizerGainsDB = Array(repeating: 0, count: EqualizerBand.allCases.count)
+  }
+
   public static let neutral = DSPSettings(
     width: 1.0,
     inputGainDB: 0,
-    lowShelfDB: 0,
-    bodyDB: 0,
-    presenceDB: 0,
-    airDB: 0,
+    equalizerGainsDB: Array(repeating: 0, count: EqualizerBand.allCases.count),
     compressionThresholdDB: 0,
     compressionRatio: 1,
     saturation: 0,
     outputCeilingDB: -0.2
   )
+
+  private enum CodingKeys: String, CodingKey {
+    case width
+    case inputGainDB
+    case equalizerGainsDB
+    case compressionThresholdDB
+    case compressionRatio
+    case saturation
+    case outputCeilingDB
+    case lowShelfDB
+    case bodyDB
+    case presenceDB
+    case airDB
+  }
+
+  public init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    width = try values.decodeIfPresent(Float.self, forKey: .width) ?? 1.32
+    inputGainDB = try values.decodeIfPresent(Float.self, forKey: .inputGainDB) ?? 2.2
+    compressionThresholdDB =
+      try values.decodeIfPresent(Float.self, forKey: .compressionThresholdDB) ?? -18
+    compressionRatio = try values.decodeIfPresent(Float.self, forKey: .compressionRatio) ?? 2
+    saturation = try values.decodeIfPresent(Float.self, forKey: .saturation) ?? 0.12
+    outputCeilingDB = try values.decodeIfPresent(Float.self, forKey: .outputCeilingDB) ?? -1
+
+    if let gains = try values.decodeIfPresent([Float].self, forKey: .equalizerGainsDB) {
+      equalizerGainsDB = Self.normalized(gains)
+    } else {
+      let low = try values.decodeIfPresent(Float.self, forKey: .lowShelfDB) ?? 0
+      let body = try values.decodeIfPresent(Float.self, forKey: .bodyDB) ?? 0
+      let presence = try values.decodeIfPresent(Float.self, forKey: .presenceDB) ?? 0
+      let air = try values.decodeIfPresent(Float.self, forKey: .airDB) ?? 0
+      equalizerGainsDB = [
+        low, low, low * 0.7, body, body * 0.6, 0, presence * 0.7, presence, air, air,
+      ]
+    }
+  }
+
+  public func encode(to encoder: Encoder) throws {
+    var values = encoder.container(keyedBy: CodingKeys.self)
+    try values.encode(width, forKey: .width)
+    try values.encode(inputGainDB, forKey: .inputGainDB)
+    try values.encode(equalizerGainsDB, forKey: .equalizerGainsDB)
+    try values.encode(compressionThresholdDB, forKey: .compressionThresholdDB)
+    try values.encode(compressionRatio, forKey: .compressionRatio)
+    try values.encode(saturation, forKey: .saturation)
+    try values.encode(outputCeilingDB, forKey: .outputCeilingDB)
+  }
+
+  private static func normalized(_ gains: [Float]) -> [Float] {
+    EqualizerBand.allCases.map { band in
+      let gain = gains.indices.contains(band.rawValue) ? gains[band.rawValue] : 0
+      return min(max(gain, equalizerRange.lowerBound), equalizerRange.upperBound)
+    }
+  }
 }
 
 public enum SoundPreset: String, CaseIterable, Codable, Identifiable, Sendable {
@@ -67,10 +158,7 @@ public enum SoundPreset: String, CaseIterable, Codable, Identifiable, Sendable {
       DSPSettings(
         width: 1.48,
         inputGainDB: 1.6,
-        lowShelfDB: 1.5,
-        bodyDB: -0.5,
-        presenceDB: 1.2,
-        airDB: 1.6,
+        equalizerGainsDB: [0.7, 1.1, 1.0, 0.2, -0.5, -0.2, 0.8, 1.2, 1.6, 1.3],
         compressionThresholdDB: -20,
         compressionRatio: 1.7,
         saturation: 0.08
@@ -79,10 +167,7 @@ public enum SoundPreset: String, CaseIterable, Codable, Identifiable, Sendable {
       DSPSettings(
         width: 1.16,
         inputGainDB: 1.0,
-        lowShelfDB: 1.0,
-        bodyDB: -0.3,
-        presenceDB: 0.5,
-        airDB: 0.6,
+        equalizerGainsDB: [0.4, 0.7, 0.6, 0.1, -0.3, 0, 0.3, 0.5, 0.6, 0.4],
         compressionThresholdDB: -16,
         compressionRatio: 1.5,
         saturation: 0.05

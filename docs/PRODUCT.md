@@ -20,6 +20,7 @@ without making my audio setup fragile.
 ## User outcomes
 
 - Hear a clear improvement in the first minute.
+- See the processed signal without a decorative or normalized animation.
 - Start and stop processing without audio troubleshooting.
 - Keep the selected sound after an app restart.
 - Change output devices without manual route repair.
@@ -38,7 +39,9 @@ without making my audio setup fragile.
 
 - One native macOS app
 - Three sound presets
-- Five direct sound controls
+- Ten equalizer bands, stereo width, and input gain
+- Coefficient-derived frequency response
+- Post-DSP stereo waveform and dBFS meters
 - One temporary private route
 - Local product health counters
 - Bluetooth and built-in stereo output support
@@ -54,6 +57,6 @@ without making my audio setup fragile.
 
 ## Release outcome
 
-Version 0.1 proves that the route and core sound can support daily listening.
-Version 0.2 will follow measured user friction. It will not follow a feature
-count target.
+Version 0.2 makes sound shaping inspectable and precise. Release readiness
+depends on coefficient tests, sample-integrity tests, route reliability, and a
+real playback check. It does not depend on a feature count target.
