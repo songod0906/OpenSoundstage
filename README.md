@@ -6,11 +6,17 @@ permanent audio driver.
 
 <img src="Resources/AppIcon.png" width="128" alt="OpenSoundstage app icon">
 
-The first release has three presets:
+The app includes three starting presets and a complete 10-band equalizer:
 
-- **Whole** adds body, presence, air, stereo width, and controlled gain.
-- **Wide** increases width and air for spacious mixes.
+- **Whole** adds weight, clarity, stereo width, and controlled gain.
+- **Wide** opens the stereo image and lifts high-frequency detail.
 - **Gentle** uses lighter processing for long listening sessions.
+
+The equalizer has bands at 32, 64, 125, 250, 500, 1k, 2k, 4k, 8k, and
+16k Hz. The response graph is calculated from the same biquad coefficients
+that process the audio. The live stereo waveform and peak/RMS meters use the
+actual post-DSP samples. The waveform uses a fixed full-scale axis and does not
+normalize its shape for display.
 
 ## Requirements
 
@@ -36,7 +42,7 @@ Developer ID certificate and notarize the app.
 1. Stop other system audio processors.
 2. Open `dist/OpenSoundstage.app`.
 3. Select a preset.
-4. Adjust the controls if necessary.
+4. Adjust the equalizer, stereo width, or input gain if necessary.
 5. Select **Start sound**.
 6. Allow system audio access if macOS asks for it.
 7. Select **Stop sound** before you use another audio enhancer.
@@ -55,11 +61,15 @@ sound or quit the app.
 The DSP pipeline applies these stages:
 
 1. High-pass protection
-2. Body, presence, and air filters
+2. Ten peaking equalizer filters
 3. Mid-side stereo width
 4. Stereo-linked compression
 5. Soft saturation
 6. Stereo-linked output limiting at -1 dBFS
+
+Processed samples also enter a bounded lock-free monitoring ring. The user
+interface reads only a copy of the latest samples. It never blocks the audio
+callback and it never stores or sends audio.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
 
@@ -84,9 +94,10 @@ Select **Product health** to view, copy, or reset the report. Read
 
 ## Test status
 
-The first release has unit tests for silence, mono compatibility, stereo width,
-and the limiter ceiling. It also passed a local playback test on macOS 26.5.1
-with a Bluetooth output and four CPU load workers.
+The automated suite covers silence, mono compatibility, stereo width, limiter
+ceiling, EQ coefficient response, preference migration, waveform sample
+integrity, and dBFS meter math. See the latest GitHub Actions run for the
+published commit. Manual playback results are stated in each release note.
 
 ## Contribute
 

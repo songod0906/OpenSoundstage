@@ -11,6 +11,9 @@
 - `Scripts/verify.sh` passes.
 - The audio callback has no new allocations, locks, or logs.
 - DSP changes have deterministic tests.
+- EQ response uses the same coefficients as the audio pipeline.
+- Known waveform samples and dBFS values pass deterministic tests.
+- A stopped route shows no simulated waveform.
 - Start failure destroys each partial route object.
 
 ## Product gate
@@ -19,6 +22,7 @@
 - Settings persist after restart.
 - Product health counters remain local.
 - User-facing language states one clear result.
+- The EQ can be flattened and restored to its preset without help.
 
 ## Audio gate
 

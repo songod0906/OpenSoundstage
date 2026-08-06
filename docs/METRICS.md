@@ -41,6 +41,19 @@ Ask beta users these questions after at least three sessions:
 3. Did you trust the app to clean up its route?
 4. Which control was unclear or unnecessary?
 5. Would you keep the app active for daily listening?
+6. Could you predict the audible change from the EQ curve?
+7. Did the waveform and dBFS meters increase trust in the signal path?
+
+## Version 0.2 feature measures
+
+- EQ task completion: user can make one band change and return to Flat without help
+- Curve comprehension: user correctly identifies a boost and cut in a five-second test
+- Monitor trust: user understands that the fixed scale represents post-DSP full scale
+- Rendering correctness: known samples round-trip unchanged and produce the expected dBFS values
+- Callback safety: monitoring adds no allocation, lock, wait, or log to the callback
+
+Do not record EQ values or audio-derived levels in product health. Use unit
+tests and opt-in user research for these measures.
 
 ## Decision rules
 

@@ -1,6 +1,6 @@
 # Architecture
 
-OpenSoundstage has three Swift targets.
+OpenSoundstage has three Swift targets and one small C target.
 
 ## OpenSoundstageDSP
 
@@ -15,6 +15,23 @@ keeps the stereo image stable when one channel has a high peak.
 The audio callback does not allocate memory. It does not use a lock. It does
 not write a log message.
 
+The equalizer uses ten peaking biquads with a Q of 1.1. The response graph
+evaluates the transfer function from the same coefficients. Response
+evaluation uses 64-bit math to avoid cancellation near DC. The audio callback
+applies the cascaded filters with Apple's Accelerate framework. Stereo state
+is separate, and the setup is allocated before the callback starts.
+
+The compressor updates its nonlinear gain calculation every 16 frames and
+smooths gain on every frame. Soft saturation uses a bounded rational curve.
+These choices remove transcendental math from the per-frame hot path.
+
+## OpenSoundstageRealtime
+
+This target provides a bounded stereo ring for the waveform monitor. The audio
+callback writes IEEE 754 sample bits into C11 atomic slots and publishes one
+write cursor. The user interface copies the latest frames at 30 Hz. The writer
+does not allocate, wait, or take a lock.
+
 ## OpenSoundstageCore
 
 `SystemAudioEngine` owns the complete route lifecycle.
@@ -26,7 +43,8 @@ not write a log message.
 5. Enable drift compensation for the tap.
 6. Start one Audio Device IO callback.
 7. Copy and process each stereo buffer.
-8. Stop and destroy all temporary Core Audio objects.
+8. Copy post-DSP samples into the monitoring ring.
+9. Stop and destroy all temporary Core Audio objects.
 
 The app never changes the macOS default output. It does not install an Audio
 Server plug-in. It does not keep a helper process active after the app quits.
@@ -41,6 +59,11 @@ This target provides the SwiftUI window and menu bar control. `AppModel` owns
 one audio engine. It stops the route before sleep. It restarts the route after
 wake when necessary. It also restarts the route when the default output
 changes.
+
+`AppModel` reads the latest 512 frames from the monitoring ring at 15 Hz. It
+calculates stereo peak and RMS values in dBFS outside the audio callback. The
+waveform has a fixed ±1.0 full-scale axis. A stopped route produces an empty
+snapshot, not simulated motion.
 
 ## Failure behavior
 

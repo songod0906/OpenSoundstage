@@ -11,10 +11,17 @@ let package = Package(
     .executable(name: "OpenSoundstage", targets: ["OpenSoundstageApp"]),
   ],
   targets: [
-    .target(name: "OpenSoundstageDSP"),
+    .target(
+      name: "OpenSoundstageRealtime",
+      publicHeadersPath: "include"
+    ),
+    .target(
+      name: "OpenSoundstageDSP",
+      linkerSettings: [.linkedFramework("Accelerate")]
+    ),
     .target(
       name: "OpenSoundstageCore",
-      dependencies: ["OpenSoundstageDSP"],
+      dependencies: ["OpenSoundstageDSP", "OpenSoundstageRealtime"],
       linkerSettings: [
         .linkedFramework("AudioToolbox"),
         .linkedFramework("CoreAudio"),

@@ -38,6 +38,22 @@ struct BiquadCoefficients: Sendable {
     )
   }
 
+  func magnitudeDB(at frequency: Float, sampleRate: Float) -> Float {
+    let omega = 2 * Double.pi * Double(frequency) / Double(sampleRate)
+    let cosine = cos(omega)
+    let sine = sin(omega)
+    let cosine2 = cos(2 * omega)
+    let sine2 = sin(2 * omega)
+    let numeratorReal = Double(b0) + Double(b1) * cosine + Double(b2) * cosine2
+    let numeratorImaginary = -(Double(b1) * sine + Double(b2) * sine2)
+    let denominatorReal = 1 + Double(a1) * cosine + Double(a2) * cosine2
+    let denominatorImaginary = -(Double(a1) * sine + Double(a2) * sine2)
+    let numerator = numeratorReal * numeratorReal + numeratorImaginary * numeratorImaginary
+    let denominator =
+      denominatorReal * denominatorReal + denominatorImaginary * denominatorImaginary
+    return Float(10 * log10(max(numerator / max(denominator, 1e-18), 1e-18)))
+  }
+
   static func lowShelf(sampleRate: Float, frequency: Float, gainDB: Float) -> Self {
     shelf(sampleRate: sampleRate, frequency: frequency, gainDB: gainDB, high: false)
   }

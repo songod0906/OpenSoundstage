@@ -10,6 +10,7 @@ import OpenSoundstageDSP
 public final class SystemAudioEngine: @unchecked Sendable {
   public private(set) var isRunning = false
   public private(set) var outputDeviceName = "No output"
+  public private(set) var sampleRate: Float = 48_000
   public var outputDeviceDidChange: (() -> Void)?
 
   private let audioQueue = DispatchQueue(
@@ -20,11 +21,17 @@ public final class SystemAudioEngine: @unchecked Sendable {
   private var aggregateDeviceID = AudioObjectID.unknown
   private var ioProcID: AudioDeviceIOProcID?
   private var outputListener: AudioObjectPropertyListenerBlock?
+  private let waveformCapture = WaveformCapture()!
 
   public init() {}
 
+  public func waveformSnapshot(maximumFrameCount: Int = 1_024) -> WaveformSnapshot {
+    waveformCapture.snapshot(maximumFrameCount: maximumFrameCount)
+  }
+
   public func start(settings: DSPSettings) throws {
     guard !isRunning else { return }
+    waveformCapture.clear()
 
     do {
       let outputDevice = try CoreAudioDevices.defaultOutput()
@@ -61,6 +68,7 @@ public final class SystemAudioEngine: @unchecked Sendable {
       else {
         throw SoundstageError("The selected output does not provide stereo 32-bit float audio.")
       }
+      sampleRate = Float(format.mSampleRate)
 
       let aggregateDescription: [String: Any] = [
         kAudioAggregateDeviceNameKey: "OpenSoundstage Private Route",
@@ -91,13 +99,19 @@ public final class SystemAudioEngine: @unchecked Sendable {
       aggregateDeviceID = newAggregate
 
       let pipeline = DSPPipeline(sampleRate: Float(format.mSampleRate), settings: settings)
+      let waveformCapture = self.waveformCapture
       var newIOProc: AudioDeviceIOProcID?
       status = AudioDeviceCreateIOProcIDWithBlock(
         &newIOProc,
         aggregateDeviceID,
         audioQueue
       ) { _, inputData, _, outputData, _ in
-        Self.render(input: inputData, output: outputData, pipeline: pipeline)
+        Self.render(
+          input: inputData,
+          output: outputData,
+          pipeline: pipeline,
+          waveformCapture: waveformCapture
+        )
       }
       guard status == noErr, let newIOProc else {
         throw SoundstageError("Core Audio could not create the render callback. Error: \(status).")
@@ -135,6 +149,7 @@ public final class SystemAudioEngine: @unchecked Sendable {
     aggregateDeviceID = .unknown
     tapID = .unknown
     isRunning = false
+    waveformCapture.clear()
   }
 
   private func installOutputListener() {
@@ -178,7 +193,8 @@ public final class SystemAudioEngine: @unchecked Sendable {
   private static func render(
     input: UnsafePointer<AudioBufferList>,
     output: UnsafeMutablePointer<AudioBufferList>,
-    pipeline: DSPPipeline
+    pipeline: DSPPipeline,
+    waveformCapture: WaveformCapture
   ) {
     let inputBuffers = UnsafeMutableAudioBufferListPointer(
       UnsafeMutablePointer(mutating: input)
@@ -206,6 +222,10 @@ public final class SystemAudioEngine: @unchecked Sendable {
         data.assumingMemoryBound(to: Float.self),
         frameCount: frameCount
       )
+      waveformCapture.writeInterleaved(
+        data.assumingMemoryBound(to: Float.self),
+        frameCount: frameCount
+      )
     } else if outputBuffers.count >= 2,
       outputBuffers[0].mNumberChannels == 1,
       outputBuffers[1].mNumberChannels == 1,
@@ -215,6 +235,11 @@ public final class SystemAudioEngine: @unchecked Sendable {
       let leftFrames = Int(outputBuffers[0].mDataByteSize) / MemoryLayout<Float>.size
       let rightFrames = Int(outputBuffers[1].mDataByteSize) / MemoryLayout<Float>.size
       pipeline.processPlanar(
+        left: left.assumingMemoryBound(to: Float.self),
+        right: right.assumingMemoryBound(to: Float.self),
+        frameCount: min(leftFrames, rightFrames)
+      )
+      waveformCapture.writePlanar(
         left: left.assumingMemoryBound(to: Float.self),
         right: right.assumingMemoryBound(to: Float.self),
         frameCount: min(leftFrames, rightFrames)

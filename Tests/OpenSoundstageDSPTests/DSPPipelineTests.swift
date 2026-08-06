@@ -15,6 +15,21 @@ final class DSPPipelineTests: XCTestCase {
     XCTAssertTrue(samples.allSatisfy { $0.isFinite && $0 == 0 })
   }
 
+  func testNonSilentInputProducesNonSilentOutput() {
+    let pipeline = DSPPipeline(sampleRate: 48_000, settings: .neutral)
+    var samples = makeStereoSignal(frames: 2_048) { index in
+      let value = sin(Float(index) * 0.09) * 0.25
+      return (value, value)
+    }
+    let frameCount = samples.count / 2
+
+    samples.withUnsafeMutableBufferPointer {
+      pipeline.processInterleaved($0.baseAddress!, frameCount: frameCount)
+    }
+
+    XCTAssertGreaterThan(samples.lazy.map(abs).max() ?? 0, 0.2)
+  }
+
   func testMonoSignalStaysCentered() {
     let pipeline = DSPPipeline(sampleRate: 48_000, settings: .init(width: 1.6))
     var samples = makeStereoSignal(frames: 8_192) { index in
@@ -70,6 +85,40 @@ final class DSPPipelineTests: XCTestCase {
     }
     let peak = samples.map(abs).max() ?? 0
     XCTAssertLessThanOrEqual(peak, ceiling + 0.000_01)
+  }
+
+  func testFlatEqualizerResponseIsZeroDecibels() {
+    let settings = DSPSettings.neutral
+    for frequency: Float in [20, 32, 100, 1_000, 8_000, 20_000] {
+      XCTAssertEqual(
+        DSPPipeline.equalizerResponseDB(
+          at: frequency,
+          sampleRate: 48_000,
+          settings: settings
+        ),
+        0,
+        accuracy: 0.000_01
+      )
+    }
+  }
+
+  func testEqualizerCenterGainMatchesSelectedBand() {
+    var settings = DSPSettings.neutral
+    settings[.hz1000] = 6
+
+    let center = DSPPipeline.equalizerResponseDB(
+      at: 1_000,
+      sampleRate: 48_000,
+      settings: settings
+    )
+    let distant = DSPPipeline.equalizerResponseDB(
+      at: 32,
+      sampleRate: 48_000,
+      settings: settings
+    )
+
+    XCTAssertEqual(center, 6, accuracy: 0.001)
+    XCTAssertLessThan(abs(distant), 0.02)
   }
 
   private func makeStereoSignal(

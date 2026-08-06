@@ -4,6 +4,11 @@ import AppKit
 import Foundation
 import OpenSoundstageCore
 import OpenSoundstageDSP
+import SwiftUI
+
+final class WaveformMonitor: ObservableObject {
+  @Published fileprivate(set) var snapshot = WaveformSnapshot.silence
+}
 
 final class AppModel: ObservableObject {
   @Published var preset: SoundPreset = .whole {
@@ -22,15 +27,18 @@ final class AppModel: ObservableObject {
   @Published private(set) var isRunning = false
   @Published private(set) var status = "Ready"
   @Published private(set) var outputName = "Default output"
+  @Published private(set) var sampleRate: Float = 48_000
   @Published var errorMessage: String?
   @Published var showsProductHealth = false
   @Published private(set) var metrics = ProductMetrics()
+  let waveformMonitor = WaveformMonitor()
 
   private let engine = SystemAudioEngine()
   private let preferencesStore = PreferencesStore()
   private let metricsStore = ProductMetricsStore()
   private var shouldRestartAfterWake = false
   private var sessionStartedAt: Date?
+  private var waveformTimer: Timer?
 
   init() {
     let preferences = preferencesStore.load()
@@ -59,6 +67,12 @@ final class AppModel: ObservableObject {
       name: NSApplication.willTerminateNotification,
       object: nil
     )
+    waveformTimer = Timer.scheduledTimer(withTimeInterval: 1 / 15, repeats: true) {
+      [weak self] _ in
+      guard let self else { return }
+      waveformMonitor.snapshot =
+        isRunning ? engine.waveformSnapshot(maximumFrameCount: 512) : .silence
+    }
   }
 
   func toggle() {
@@ -74,6 +88,7 @@ final class AppModel: ObservableObject {
       isRunning = true
       sessionStartedAt = Date()
       outputName = engine.outputDeviceName
+      sampleRate = engine.sampleRate
       status = "Sound is enhanced"
       metrics = metricsStore.update { $0.recordSuccessfulStart() }
     } catch {
@@ -97,6 +112,18 @@ final class AppModel: ObservableObject {
   func resetPreset() {
     guard !isRunning else { return }
     settings = preset.settings
+  }
+
+  func flattenEqualizer() {
+    guard !isRunning else { return }
+    settings.flattenEqualizer()
+  }
+
+  func gainBinding(for band: EqualizerBand) -> Binding<Float> {
+    Binding(
+      get: { self.settings[band] },
+      set: { self.settings[band] = $0 }
+    )
   }
 
   func copyMetricsReport() {
@@ -154,6 +181,7 @@ final class AppModel: ObservableObject {
   }
 
   deinit {
+    waveformTimer?.invalidate()
     NSWorkspace.shared.notificationCenter.removeObserver(self)
     NotificationCenter.default.removeObserver(self)
     engine.stop()

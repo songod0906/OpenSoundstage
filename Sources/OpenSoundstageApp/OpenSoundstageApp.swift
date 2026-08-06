@@ -18,7 +18,8 @@ struct OpenSoundstageApp: App {
     WindowGroup {
       ContentView(model: model)
     }
-    .windowResizability(.contentSize)
+    .defaultSize(width: 1_020, height: 800)
+    .windowResizability(.contentMinSize)
 
     MenuBarExtra("OpenSoundstage", systemImage: "waveform") {
       MenuContent(model: model)
