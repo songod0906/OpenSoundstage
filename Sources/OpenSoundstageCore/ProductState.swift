@@ -44,7 +44,7 @@ public final class PreferencesStore {
 }
 
 public struct ProductMetrics: Codable, Equatable, Sendable {
-  public var schemaVersion = 1
+  public var schemaVersion = 2
   public var firstLaunchAt: Date
   public var launchCount = 0
   public var startAttempts = 0
@@ -54,6 +54,7 @@ public struct ProductMetrics: Codable, Equatable, Sendable {
   public var enhancedSeconds: Double = 0
   public var outputChanges = 0
   public var lastFailureCategory: String?
+  public var presetSelections: [String: Int] = [:]
 
   public init(firstLaunchAt: Date = Date()) {
     self.firstLaunchAt = firstLaunchAt
@@ -89,6 +90,41 @@ public struct ProductMetrics: Codable, Equatable, Sendable {
 
   public mutating func recordOutputChange() {
     outputChanges += 1
+  }
+
+  public mutating func recordPresetSelection(_ preset: String) {
+    presetSelections[preset, default: 0] += 1
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case schemaVersion
+    case firstLaunchAt
+    case launchCount
+    case startAttempts
+    case successfulStarts
+    case failedStarts
+    case completedSessions
+    case enhancedSeconds
+    case outputChanges
+    case lastFailureCategory
+    case presetSelections
+  }
+
+  public init(from decoder: Decoder) throws {
+    let values = try decoder.container(keyedBy: CodingKeys.self)
+    schemaVersion = try values.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
+    firstLaunchAt = try values.decodeIfPresent(Date.self, forKey: .firstLaunchAt) ?? Date()
+    launchCount = try values.decodeIfPresent(Int.self, forKey: .launchCount) ?? 0
+    startAttempts = try values.decodeIfPresent(Int.self, forKey: .startAttempts) ?? 0
+    successfulStarts = try values.decodeIfPresent(Int.self, forKey: .successfulStarts) ?? 0
+    failedStarts = try values.decodeIfPresent(Int.self, forKey: .failedStarts) ?? 0
+    completedSessions = try values.decodeIfPresent(Int.self, forKey: .completedSessions) ?? 0
+    enhancedSeconds = try values.decodeIfPresent(Double.self, forKey: .enhancedSeconds) ?? 0
+    outputChanges = try values.decodeIfPresent(Int.self, forKey: .outputChanges) ?? 0
+    lastFailureCategory = try values.decodeIfPresent(String.self, forKey: .lastFailureCategory)
+    presetSelections =
+      try values.decodeIfPresent([String: Int].self, forKey: .presetSelections) ?? [:]
+    schemaVersion = 2
   }
 }
 

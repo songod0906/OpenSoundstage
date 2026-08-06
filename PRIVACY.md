@@ -15,6 +15,7 @@ The app stores these counters in the application defaults domain:
 - Total enhanced seconds
 - Output change count
 - Last route failure category
+- Sound profile selection counts
 
 The report does not store audio, output names, file names, app names, network
 addresses, account data, or personal identifiers.

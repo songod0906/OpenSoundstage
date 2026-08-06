@@ -4,6 +4,27 @@ All important product changes appear in this file.
 
 The project uses [Semantic Versioning](https://semver.org/).
 
+## 0.4.0 - 2026-08-06
+
+### Added
+
+- Bass, Voice, Night, and Detail task-focused sound profiles
+- Calibrated 2,048-point live post-DSP spectrum behind the EQ response
+- Sound profile selection from the menu bar
+- Private on-device profile-selection counters in Product health
+- FFT frequency and level calibration tests plus preset safety-bound tests
+
+### Changed
+
+- Expanded waveform monitoring from 512 to 2,048 frames for useful spectral resolution
+- Made the limiter status reflect each profile's actual output ceiling
+- Added a short intended-use description beside every selected profile
+
+### Safety
+
+- Kept every built-in EQ boost at or below 3 dB and input gain at or below 2.2 dB
+- Gives Night an additional decibel of limiter headroom
+
 ## 0.3.0 - 2026-08-06
 
 ### Added

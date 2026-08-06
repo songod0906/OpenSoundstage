@@ -146,10 +146,40 @@ public struct DSPSettings: Codable, Equatable, Sendable {
 public enum SoundPreset: String, CaseIterable, Codable, Identifiable, Sendable {
   case whole = "Whole"
   case club = "Club"
+  case bass = "Bass"
+  case voice = "Voice"
+  case night = "Night"
+  case detail = "Detail"
   case wide = "Wide"
   case gentle = "Gentle"
 
   public var id: String { rawValue }
+
+  public var summary: String {
+    switch self {
+    case .whole: "Fuller, coherent everyday sound"
+    case .club: "Punch and presence for energetic music"
+    case .bass: "Deeper lows without the giant boost"
+    case .voice: "Clearer dialogue, podcasts, and vocals"
+    case .night: "Tighter dynamics for quiet listening"
+    case .detail: "Extra definition with restrained low end"
+    case .wide: "A more open stereo image"
+    case .gentle: "Light processing for long sessions"
+    }
+  }
+
+  public var systemImage: String {
+    switch self {
+    case .whole: "circle.hexagongrid"
+    case .club: "music.note.list"
+    case .bass: "speaker.wave.3"
+    case .voice: "quote.bubble"
+    case .night: "moon.stars"
+    case .detail: "sparkles"
+    case .wide: "arrow.left.and.right"
+    case .gentle: "leaf"
+    }
+  }
 
   public var settings: DSPSettings {
     switch self {
@@ -163,6 +193,43 @@ public enum SoundPreset: String, CaseIterable, Codable, Identifiable, Sendable {
         compressionThresholdDB: -19,
         compressionRatio: 2.2,
         saturation: 0.15
+      )
+    case .bass:
+      DSPSettings(
+        width: 1.22,
+        inputGainDB: 1.0,
+        equalizerGainsDB: [1.8, 2.8, 2.2, 0.8, -0.6, -0.4, 0.2, 0.4, 0.2, 0],
+        compressionThresholdDB: -20,
+        compressionRatio: 2.2,
+        saturation: 0.12
+      )
+    case .voice:
+      DSPSettings(
+        width: 1.08,
+        inputGainDB: 1.2,
+        equalizerGainsDB: [-1.5, -1.3, -0.9, -0.3, 0.8, 1.8, 2.3, 1.4, 0.2, -0.5],
+        compressionThresholdDB: -21,
+        compressionRatio: 2.5,
+        saturation: 0.04
+      )
+    case .night:
+      DSPSettings(
+        width: 1.05,
+        inputGainDB: 0.4,
+        equalizerGainsDB: [0.5, 1.0, 0.8, 0.2, -0.3, 0.4, 1.1, 0.7, -0.4, -0.8],
+        compressionThresholdDB: -24,
+        compressionRatio: 3.0,
+        saturation: 0.03,
+        outputCeilingDB: -2.0
+      )
+    case .detail:
+      DSPSettings(
+        width: 1.28,
+        inputGainDB: 0.7,
+        equalizerGainsDB: [-0.4, -0.3, -0.2, -0.3, -0.1, 0.5, 1.2, 1.7, 1.8, 1.0],
+        compressionThresholdDB: -18,
+        compressionRatio: 1.6,
+        saturation: 0.05
       )
     case .wide:
       DSPSettings(

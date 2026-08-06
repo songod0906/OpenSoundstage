@@ -28,6 +28,8 @@ final class ProductStateTests: XCTestCase {
       metrics.recordSuccessfulStart()
       metrics.recordCompletedSession(seconds: 125)
       metrics.recordOutputChange()
+      metrics.recordPresetSelection("Voice")
+      metrics.recordPresetSelection("Voice")
     }
 
     let metrics = ProductMetricsStore(defaults: defaults).current
@@ -36,6 +38,7 @@ final class ProductStateTests: XCTestCase {
     XCTAssertEqual(metrics.completedSessions, 1)
     XCTAssertEqual(metrics.enhancedSeconds, 125)
     XCTAssertEqual(metrics.outputChanges, 1)
+    XCTAssertEqual(metrics.presetSelections["Voice"], 2)
   }
 
   func testMetricsReportContainsNoAudioOrDeviceFields() throws {
@@ -69,6 +72,30 @@ final class ProductStateTests: XCTestCase {
     XCTAssertEqual(settings[.hz250], -1)
     XCTAssertEqual(settings[.hz4000], 1.5)
     XCTAssertEqual(settings[.hz16000], 1)
+  }
+
+  func testVersionOneMetricsMigrateWithoutLosingCounters() throws {
+    let json = """
+      {
+        "schemaVersion": 1,
+        "firstLaunchAt": 0,
+        "launchCount": 7,
+        "startAttempts": 3,
+        "successfulStarts": 2,
+        "failedStarts": 1,
+        "completedSessions": 2,
+        "enhancedSeconds": 500,
+        "outputChanges": 1
+      }
+      """
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .secondsSince1970
+    let metrics = try decoder.decode(ProductMetrics.self, from: Data(json.utf8))
+
+    XCTAssertEqual(metrics.schemaVersion, 2)
+    XCTAssertEqual(metrics.launchCount, 7)
+    XCTAssertEqual(metrics.successfulStarts, 2)
+    XCTAssertEqual(metrics.presetSelections, [:])
   }
 
   private func makeDefaults() throws -> UserDefaults {
