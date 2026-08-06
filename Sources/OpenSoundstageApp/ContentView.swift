@@ -8,57 +8,127 @@ struct ContentView: View {
   @ObservedObject var model: AppModel
 
   var body: some View {
-    VStack(spacing: 0) {
-      header
-      ScrollView {
-        VStack(spacing: 16) {
-          WaveformPanel(monitor: model.waveformMonitor, isRunning: model.isRunning)
-          EqualizerPanel(model: model)
-          lowerControls
-          routeNote
-        }
-        .padding(20)
+    GeometryReader { proxy in
+      let layout = MixerLayout(size: proxy.size)
+
+      VStack(spacing: 0) {
+        MixerHeader(model: model, compact: layout.isCompact)
+        mixerConsole(layout: layout)
       }
+      .background(MixerBackground())
     }
-    .frame(minWidth: 900, idealWidth: 1_020, minHeight: 720, idealHeight: 800)
-    .background(Color(nsColor: .windowBackgroundColor))
+    .frame(minWidth: 760, idealWidth: 1_120, minHeight: 560, idealHeight: 720)
     .sheet(isPresented: $model.showsProductHealth) {
       ProductHealthView(model: model)
     }
   }
 
-  private var header: some View {
-    HStack(spacing: 14) {
+  private func mixerConsole(layout: MixerLayout) -> some View {
+    VStack(spacing: layout.gap) {
+      HStack(spacing: layout.gap) {
+        WaveformDeck(
+          monitor: model.waveformMonitor,
+          isRunning: model.isRunning,
+          compact: layout.isCompact
+        )
+        .frame(maxWidth: .infinity)
+
+        ResponseDeck(
+          settings: model.settings,
+          sampleRate: model.sampleRate,
+          compact: layout.isCompact
+        )
+        .frame(width: layout.responseWidth)
+      }
+      .frame(height: layout.analysisHeight)
+
+      HStack(spacing: layout.gap) {
+        EqualizerDeck(model: model, compact: layout.isCompact)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+        MasterStrip(model: model, compact: layout.isCompact)
+          .frame(width: layout.masterWidth)
+          .frame(maxHeight: .infinity)
+      }
+      .frame(maxHeight: .infinity)
+    }
+    .padding(layout.padding)
+  }
+}
+
+private struct MixerLayout {
+  let isCompact: Bool
+  let padding: CGFloat
+  let gap: CGFloat
+  let analysisHeight: CGFloat
+  let responseWidth: CGFloat
+  let masterWidth: CGFloat
+
+  init(size: CGSize) {
+    isCompact = size.width < 940 || size.height < 650
+    padding = isCompact ? 12 : 18
+    gap = isCompact ? 10 : 14
+    analysisHeight = min(max((size.height - 64) * 0.28, 126), 206)
+    responseWidth = min(max(size.width * 0.36, 260), 460)
+    masterWidth = min(max(size.width * 0.23, 202), 286)
+  }
+}
+
+private struct MixerBackground: View {
+  var body: some View {
+    ZStack {
+      Color(nsColor: .windowBackgroundColor)
+      LinearGradient(
+        colors: [Color.accentColor.opacity(0.08), .clear, Color.purple.opacity(0.05)],
+        startPoint: .topLeading,
+        endPoint: .bottomTrailing
+      )
+    }
+    .ignoresSafeArea()
+  }
+}
+
+private struct MixerHeader: View {
+  @ObservedObject var model: AppModel
+  let compact: Bool
+
+  var body: some View {
+    HStack(spacing: compact ? 10 : 14) {
       ZStack {
         RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .fill(.blue.gradient)
-        Image(systemName: "waveform.path")
-          .font(.system(size: 22, weight: .semibold))
+          .fill(Color.accentColor.gradient)
+        Image(systemName: "waveform.path.ecg")
+          .font(.system(size: compact ? 18 : 21, weight: .semibold))
           .foregroundStyle(.white)
       }
-      .frame(width: 44, height: 44)
+      .frame(width: compact ? 38 : 42, height: compact ? 38 : 42)
 
-      VStack(alignment: .leading, spacing: 2) {
+      VStack(alignment: .leading, spacing: 1) {
         Text("OpenSoundstage")
-          .font(.title2.weight(.semibold))
-        Text("System-wide sound, shaped on this Mac")
-          .font(.subheadline)
-          .foregroundStyle(.secondary)
-      }
-
-      Spacer()
-
-      HStack(spacing: 8) {
-        Circle()
-          .fill(model.isRunning ? Color.green : Color.secondary.opacity(0.45))
-          .frame(width: 8, height: 8)
-        VStack(alignment: .trailing, spacing: 1) {
-          Text(model.status)
-            .font(.subheadline.weight(.medium))
-          Text(model.outputName)
+          .font((compact ? Font.headline : Font.title3).weight(.semibold))
+        if !compact {
+          Text("Native system-audio mixer")
             .font(.caption)
             .foregroundStyle(.secondary)
+        }
+      }
+
+      Spacer(minLength: 8)
+
+      HStack(spacing: 7) {
+        Circle()
+          .fill(model.isRunning ? Color.green : Color.secondary.opacity(0.5))
+          .frame(width: 8, height: 8)
+          .shadow(color: model.isRunning ? .green.opacity(0.7) : .clear, radius: 4)
+        VStack(alignment: .trailing, spacing: 0) {
+          Text(model.status)
+            .font(.caption.weight(.semibold))
             .lineLimit(1)
+          if !compact {
+            Text(model.outputName)
+              .font(.caption2)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+          }
         }
       }
 
@@ -66,163 +136,376 @@ struct ContentView: View {
         model.showsProductHealth = true
       } label: {
         Image(systemName: "chart.bar.xaxis")
+          .frame(width: 24, height: 24)
       }
       .buttonStyle(.borderless)
       .help("Product health")
 
-      Button(model.isRunning ? "Stop sound" : "Start sound") {
+      Button(model.isRunning ? "Stop" : "Start") {
         model.toggle()
       }
       .buttonStyle(.borderedProminent)
-      .controlSize(.large)
+      .controlSize(compact ? .regular : .large)
       .keyboardShortcut(.defaultAction)
     }
-    .padding(.horizontal, 20)
-    .padding(.vertical, 14)
+    .padding(.horizontal, compact ? 12 : 18)
+    .frame(height: compact ? 54 : 64)
     .background(.bar)
     .overlay(alignment: .bottom) { Divider() }
   }
+}
 
-  private var lowerControls: some View {
-    HStack(alignment: .top, spacing: 16) {
-      settingsCard
-      signalCard
-    }
-  }
+private struct WaveformDeck: View {
+  @ObservedObject var monitor: WaveformMonitor
+  let isRunning: Bool
+  let compact: Bool
 
-  private var settingsCard: some View {
-    VStack(alignment: .leading, spacing: 14) {
-      Label("Soundstage", systemImage: "speaker.wave.3")
-        .font(.headline)
-      horizontalControl(
-        "Stereo width", value: $model.settings.width, range: 1...1.65, format: "%.2f×"
-      )
-      horizontalControl(
-        "Input gain", value: $model.settings.inputGainDB, range: 0...5, format: "%+.1f dB"
-      )
-    }
-    .panelStyle()
-    .disabled(model.isRunning)
-  }
+  private var snapshot: WaveformSnapshot { monitor.snapshot }
 
-  private var signalCard: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Label("Signal chain", systemImage: "point.3.connected.trianglepath.dotted")
-        .font(.headline)
-      Text("EQ → width → dynamics → -1 dBFS limiter")
-        .font(.subheadline)
-      Text(
-        model.isRunning
-          ? "Controls are locked to prevent filter changes inside an audio session."
-          : "Settings apply when you start sound."
-      )
-      .font(.caption)
-      .foregroundStyle(.secondary)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .panelStyle()
-  }
-
-  private var routeNote: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      if let error = model.errorMessage {
-        Label(error, systemImage: "exclamationmark.triangle.fill")
-          .font(.caption)
-          .foregroundStyle(.red)
-          .textSelection(.enabled)
-      }
-      Label(
-        "Use one system audio processor at a time. The temporary route is removed when sound stops or the app quits.",
-        systemImage: "info.circle"
-      )
-      .font(.caption)
-      .foregroundStyle(.secondary)
-    }
-    .frame(maxWidth: .infinity, alignment: .leading)
-  }
-
-  private func horizontalControl(
-    _ label: String,
-    value: Binding<Float>,
-    range: ClosedRange<Float>,
-    format: String
-  ) -> some View {
-    VStack(alignment: .leading, spacing: 6) {
-      HStack {
-        Text(label)
-          .font(.subheadline)
+  var body: some View {
+    VStack(alignment: .leading, spacing: compact ? 6 : 9) {
+      HStack(spacing: 10) {
+        MixerTitle("LIVE OUTPUT", systemImage: "waveform")
         Spacer()
-        Text(String(format: format, value.wrappedValue))
-          .font(.subheadline.monospacedDigit())
+        Text("POST DSP · ±1.0 FS")
+          .font(.caption2.monospaced())
           .foregroundStyle(.secondary)
       }
-      Slider(value: value, in: range)
+
+      WaveformCanvas(snapshot: snapshot)
+        .overlay(alignment: .center) {
+          if !isRunning {
+            Text("START TO MONITOR")
+              .font(.caption2.weight(.bold))
+              .tracking(0.8)
+              .foregroundStyle(.secondary)
+              .padding(.horizontal, 10)
+              .padding(.vertical, 5)
+              .background(.regularMaterial, in: Capsule())
+          }
+        }
+
+      StereoMeter(snapshot: snapshot)
+        .frame(height: compact ? 22 : 28)
     }
+    .mixerPanel(compact: compact)
   }
 }
 
-private struct EqualizerPanel: View {
-  @ObservedObject var model: AppModel
+private struct StereoMeter: View {
+  let snapshot: WaveformSnapshot
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 16) {
+    HStack(spacing: 8) {
+      meter(label: "L", peak: snapshot.leftPeakDBFS, rms: snapshot.leftRMSDBFS, color: .cyan)
+      meter(label: "R", peak: snapshot.rightPeakDBFS, rms: snapshot.rightRMSDBFS, color: .purple)
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(
+      String(
+        format: "Left peak %.1f RMS %.1f, right peak %.1f RMS %.1f decibels full scale",
+        snapshot.leftPeakDBFS,
+        snapshot.leftRMSDBFS,
+        snapshot.rightPeakDBFS,
+        snapshot.rightRMSDBFS
+      )
+    )
+  }
+
+  private func meter(label: String, peak: Float, rms: Float, color: Color) -> some View {
+    HStack(spacing: 5) {
+      Text(label)
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(color)
+      GeometryReader { proxy in
+        let rmsWidth = proxy.size.width * level(rms)
+        let peakX = proxy.size.width * level(peak)
+        ZStack(alignment: .leading) {
+          Capsule().fill(.quaternary)
+          Capsule()
+            .fill(
+              LinearGradient(
+                colors: [color.opacity(0.65), color, .orange],
+                startPoint: .leading,
+                endPoint: .trailing
+              )
+            )
+            .frame(width: rmsWidth)
+          Rectangle()
+            .fill(peak > -1 ? Color.red : Color.white.opacity(0.9))
+            .frame(width: 2)
+            .offset(x: max(0, peakX - 1))
+        }
+      }
+      Text(String(format: "%5.1f", peak))
+        .font(.caption2.monospacedDigit())
+        .foregroundStyle(.secondary)
+        .frame(width: 34, alignment: .trailing)
+    }
+  }
+
+  private func level(_ decibels: Float) -> CGFloat {
+    CGFloat(min(max((decibels + 60) / 60, 0), 1))
+  }
+}
+
+private struct ResponseDeck: View {
+  let settings: DSPSettings
+  let sampleRate: Float
+  let compact: Bool
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: compact ? 6 : 9) {
       HStack {
-        VStack(alignment: .leading, spacing: 2) {
-          Text("10-band equalizer")
-            .font(.headline)
-          Text("The curve is calculated from the same EQ coefficients as the audio engine.")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
+        MixerTitle("RESPONSE", systemImage: "chart.xyaxis.line")
         Spacer()
-        Picker("Preset", selection: $model.preset) {
-          ForEach(SoundPreset.allCases) { preset in
-            Text(preset.rawValue).tag(preset)
-          }
-        }
-        .labelsHidden()
-        .frame(width: 130)
-        .disabled(model.isRunning)
+        Text("Q 1.1")
+          .font(.caption2.monospaced())
+          .foregroundStyle(.secondary)
+      }
+      FrequencyResponseView(settings: settings, sampleRate: sampleRate)
+      HStack {
+        Text("20 Hz")
+        Spacer()
+        Text("1 kHz")
+        Spacer()
+        Text("20 kHz")
+      }
+      .font(.caption2.monospacedDigit())
+      .foregroundStyle(.tertiary)
+    }
+    .mixerPanel(compact: compact)
+  }
+}
+
+private struct EqualizerDeck: View {
+  @ObservedObject var model: AppModel
+  let compact: Bool
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: compact ? 8 : 12) {
+      HStack(spacing: 8) {
+        MixerTitle("10-BAND EQ", systemImage: "slider.vertical.3")
+        Text("\(model.sampleRate / 1_000, specifier: "%.1f") kHz")
+          .font(.caption2.monospacedDigit())
+          .foregroundStyle(.secondary)
+        Spacer()
         Button("Flat") { model.flattenEqualizer() }
+          .controlSize(.small)
           .disabled(model.isRunning)
-        Button("Reset") { model.resetPreset() }
-          .disabled(model.isRunning)
+        Button {
+          model.resetPreset()
+        } label: {
+          Image(systemName: "arrow.counterclockwise")
+        }
+        .controlSize(.small)
+        .disabled(model.isRunning)
+        .help("Reset the current preset")
       }
 
-      FrequencyResponseView(settings: model.settings, sampleRate: model.sampleRate)
-        .frame(height: 122)
-
-      HStack(alignment: .top, spacing: 10) {
+      HStack(alignment: .top, spacing: compact ? 3 : 8) {
         ForEach(EqualizerBand.allCases) { band in
-          VStack(spacing: 7) {
+          VStack(spacing: compact ? 4 : 6) {
             Text(String(format: "%+.1f", model.settings[band]))
               .font(.caption2.monospacedDigit())
               .foregroundStyle(model.settings[band] == 0 ? .secondary : .primary)
+              .lineLimit(1)
+              .minimumScaleFactor(0.75)
             VerticalEQSlider(value: model.gainBinding(for: band), range: DSPSettings.equalizerRange)
-              .frame(height: 152)
               .disabled(model.isRunning)
             Text(band.label)
-              .font(.caption.monospacedDigit())
-            Text("Hz")
-              .font(.caption2)
-              .foregroundStyle(.secondary)
+              .font((compact ? Font.caption2 : Font.caption).monospacedDigit().weight(.semibold))
+            if !compact {
+              Text("HZ")
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                .foregroundStyle(.tertiary)
+            }
           }
-          .frame(maxWidth: .infinity)
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
       }
       .accessibilityElement(children: .contain)
 
       HStack {
-        Text("−12 dB")
+        Text("−12 DB")
         Spacer()
-        Text("Q 1.1 · \(model.sampleRate / 1_000, specifier: "%.1f") kHz engine rate")
+        Text(model.isRunning ? "LOCKED DURING PLAYBACK" : "DRAG FADERS · 0.5 DB STEPS")
         Spacer()
-        Text("+12 dB")
+        Text("+12 DB")
       }
-      .font(.caption2)
+      .font(.system(size: compact ? 8 : 9, weight: .medium, design: .monospaced))
       .foregroundStyle(.tertiary)
     }
-    .panelStyle()
+    .mixerPanel(compact: compact)
+  }
+}
+
+private struct MasterStrip: View {
+  @ObservedObject var model: AppModel
+  let compact: Bool
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: compact ? 8 : 12) {
+      HStack {
+        MixerTitle("MASTER", systemImage: "dial.medium")
+        Spacer()
+        Circle()
+          .fill(model.isRunning ? Color.green : Color.secondary.opacity(0.35))
+          .frame(width: 7, height: 7)
+      }
+
+      Picker("Sound profile", selection: $model.preset) {
+        ForEach(SoundPreset.allCases) { preset in
+          Text(preset.rawValue).tag(preset)
+        }
+      }
+      .pickerStyle(.menu)
+      .labelsHidden()
+      .frame(maxWidth: .infinity)
+      .disabled(model.isRunning)
+
+      HStack(spacing: compact ? 5 : 10) {
+        RotaryDial(
+          title: "WIDTH",
+          value: $model.settings.width,
+          range: 1...1.65,
+          format: "%.2f×",
+          accent: .cyan,
+          compact: compact
+        )
+        RotaryDial(
+          title: "BOOST",
+          value: $model.settings.inputGainDB,
+          range: 0...5,
+          format: "%+.1f dB",
+          accent: .orange,
+          compact: compact
+        )
+        RotaryDial(
+          title: "DRIVE",
+          value: $model.settings.saturation,
+          range: 0...0.2,
+          format: "%.0f%%",
+          displayScale: 500,
+          accent: .purple,
+          compact: compact
+        )
+      }
+      .disabled(model.isRunning)
+
+      Divider()
+
+      VStack(alignment: .leading, spacing: 5) {
+        chainItem("EQ", active: true)
+        chainItem("STEREO", active: model.settings.width > 1.001)
+        chainItem("DYNAMICS", active: true)
+        chainItem("LIMIT −1 DBFS", active: true)
+      }
+
+      Spacer(minLength: 0)
+
+      if let error = model.errorMessage {
+        Label(error, systemImage: "exclamationmark.triangle.fill")
+          .font(.caption2)
+          .foregroundStyle(.red)
+          .lineLimit(2)
+          .textSelection(.enabled)
+      } else {
+        Text(
+          model.isRunning
+            ? "Controls locked for a pop-free session"
+            : "Settings engage when sound starts"
+        )
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(2)
+      }
+    }
+    .mixerPanel(compact: compact)
+  }
+
+  private func chainItem(_ title: String, active: Bool) -> some View {
+    HStack(spacing: 6) {
+      RoundedRectangle(cornerRadius: 1.5)
+        .fill(active ? Color.green : Color.secondary.opacity(0.3))
+        .frame(width: 4, height: 11)
+      Text(title)
+        .font(.system(size: compact ? 9 : 10, weight: .semibold, design: .monospaced))
+        .foregroundStyle(active ? .primary : .secondary)
+      Spacer()
+    }
+  }
+}
+
+private struct RotaryDial: View {
+  let title: String
+  @Binding var value: Float
+  let range: ClosedRange<Float>
+  let format: String
+  var displayScale: Float = 1
+  let accent: Color
+  let compact: Bool
+  @Environment(\.isEnabled) private var isEnabled
+  @State private var dragStart: Float?
+
+  var body: some View {
+    VStack(spacing: compact ? 3 : 5) {
+      Text(title)
+        .font(.system(size: compact ? 8 : 9, weight: .bold, design: .monospaced))
+        .foregroundStyle(.secondary)
+      ZStack {
+        Circle()
+          .fill(
+            RadialGradient(
+              colors: [Color(nsColor: .controlColor), Color.black.opacity(0.82)],
+              center: .topLeading,
+              startRadius: 1,
+              endRadius: compact ? 38 : 48
+            )
+          )
+          .overlay(Circle().stroke(.separator.opacity(0.8), lineWidth: 1))
+          .shadow(color: .black.opacity(0.32), radius: 3, y: 2)
+        Capsule()
+          .fill(isEnabled ? accent : Color.secondary)
+          .frame(width: 2.5, height: compact ? 13 : 16)
+          .offset(y: compact ? -13 : -16)
+          .rotationEffect(.degrees(angle))
+      }
+      .frame(width: compact ? 42 : 52, height: compact ? 42 : 52)
+      .contentShape(Circle())
+      .gesture(dragGesture)
+      Text(String(format: format, value * displayScale))
+        .font(.system(size: compact ? 9 : 10, weight: .medium, design: .monospaced))
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+    }
+    .frame(maxWidth: .infinity)
+    .accessibilityElement()
+    .accessibilityLabel(title)
+    .accessibilityValue(String(format: format, value * displayScale))
+    .accessibilityAdjustableAction { direction in
+      let step = (range.upperBound - range.lowerBound) / 20
+      let delta: Float = direction == .increment ? step : -step
+      value = min(max(value + delta, range.lowerBound), range.upperBound)
+    }
+  }
+
+  private var angle: Double {
+    let fraction = Double((value - range.lowerBound) / (range.upperBound - range.lowerBound))
+    return -135 + fraction * 270
+  }
+
+  private var dragGesture: some Gesture {
+    DragGesture(minimumDistance: 0)
+      .onChanged { gesture in
+        guard isEnabled else { return }
+        if dragStart == nil { dragStart = value }
+        guard let dragStart else { return }
+        let span = range.upperBound - range.lowerBound
+        let candidate = dragStart - Float(gesture.translation.height / 120) * span
+        value = min(max(candidate, range.lowerBound), range.upperBound)
+      }
+      .onEnded { _ in dragStart = nil }
   }
 }
 
@@ -233,43 +516,55 @@ private struct VerticalEQSlider: View {
 
   var body: some View {
     GeometryReader { proxy in
-      let height = max(proxy.size.height - 14, 1)
+      let travel = max(proxy.size.height - 20, 1)
       let progress = CGFloat((value - range.lowerBound) / (range.upperBound - range.lowerBound))
-      let knobY = 7 + height * (1 - progress)
-      let zeroProgress = CGFloat((0 - range.lowerBound) / (range.upperBound - range.lowerBound))
-      let zeroY = 7 + height * (1 - zeroProgress)
+      let knobY = 10 + travel * (1 - progress)
+      let zeroY = 10 + travel / 2
 
       ZStack {
+        ForEach(0..<9, id: \.self) { tick in
+          Rectangle()
+            .fill(tick == 4 ? Color.secondary.opacity(0.7) : Color.secondary.opacity(0.25))
+            .frame(width: tick == 4 ? 22 : 13, height: 1)
+            .position(
+              x: proxy.size.width / 2,
+              y: 10 + travel * CGFloat(tick) / 8
+            )
+        }
         Capsule()
-          .fill(.quaternary)
-          .frame(width: 4, height: height)
-        Rectangle()
-          .fill(Color.secondary.opacity(0.45))
-          .frame(width: 14, height: 1)
-          .position(x: proxy.size.width / 2, y: zeroY)
+          .fill(Color.black.opacity(0.68))
+          .overlay(Capsule().stroke(.separator.opacity(0.7), lineWidth: 0.5))
+          .frame(width: 7, height: travel)
         Capsule()
-          .fill(isEnabled ? Color.accentColor : Color.secondary.opacity(0.4))
+          .fill(isEnabled ? Color.accentColor.opacity(0.9) : Color.secondary.opacity(0.35))
           .frame(width: 4, height: abs(knobY - zeroY))
           .position(x: proxy.size.width / 2, y: (knobY + zeroY) / 2)
-        Circle()
-          .fill(isEnabled ? Color.accentColor : Color.secondary)
-          .overlay(Circle().stroke(.white.opacity(0.8), lineWidth: 1))
-          .shadow(color: .black.opacity(0.18), radius: 2, y: 1)
-          .frame(width: 14, height: 14)
+        RoundedRectangle(cornerRadius: 3, style: .continuous)
+          .fill(isEnabled ? Color(nsColor: .controlColor) : Color.secondary.opacity(0.75))
+          .overlay(
+            VStack(spacing: 2) {
+              Rectangle().fill(.white.opacity(0.5)).frame(height: 1)
+              Rectangle().fill(.black.opacity(0.55)).frame(height: 1)
+            }
+            .padding(.horizontal, 4)
+          )
+          .overlay(RoundedRectangle(cornerRadius: 3).stroke(.separator, lineWidth: 0.7))
+          .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+          .frame(width: min(max(proxy.size.width - 8, 22), 34), height: 18)
           .position(x: proxy.size.width / 2, y: knobY)
       }
       .contentShape(Rectangle())
       .gesture(
         DragGesture(minimumDistance: 0).onChanged { gesture in
           guard isEnabled else { return }
-          let position = min(max(gesture.location.y - 7, 0), height)
-          let fraction = Float(1 - position / height)
+          let position = min(max(gesture.location.y - 10, 0), travel)
+          let fraction = Float(1 - position / travel)
           let raw = range.lowerBound + fraction * (range.upperBound - range.lowerBound)
           value = (raw * 2).rounded() / 2
         }
       )
     }
-    .frame(minWidth: 24)
+    .frame(minWidth: 24, maxHeight: .infinity)
     .accessibilityElement()
     .accessibilityLabel("Equalizer gain")
     .accessibilityValue(String(format: "%+.1f decibels", value))
@@ -286,7 +581,8 @@ private struct FrequencyResponseView: View {
 
   var body: some View {
     Canvas { context, size in
-      let plot = CGRect(x: 35, y: 8, width: size.width - 45, height: size.height - 24)
+      let plot = CGRect(
+        x: 27, y: 6, width: max(size.width - 32, 1), height: max(size.height - 10, 1))
 
       for decibels in stride(from: -12, through: 12, by: 6) {
         let y = yPosition(Float(decibels), in: plot)
@@ -295,14 +591,14 @@ private struct FrequencyResponseView: View {
         line.addLine(to: CGPoint(x: plot.maxX, y: y))
         context.stroke(
           line,
-          with: .color(decibels == 0 ? .secondary.opacity(0.45) : .secondary.opacity(0.16)),
+          with: .color(decibels == 0 ? .secondary.opacity(0.5) : .secondary.opacity(0.16)),
           lineWidth: decibels == 0 ? 1 : 0.5
         )
         context.draw(
           Text(decibels == 0 ? "0" : String(format: "%+d", decibels))
-            .font(.system(size: 9, design: .monospaced))
+            .font(.system(size: 8, design: .monospaced))
             .foregroundStyle(.secondary),
-          at: CGPoint(x: 15, y: y)
+          at: CGPoint(x: 11, y: y)
         )
       }
 
@@ -342,15 +638,18 @@ private struct FrequencyResponseView: View {
       context.fill(
         fill,
         with: .linearGradient(
-          Gradient(colors: [.blue.opacity(0.26), .blue.opacity(0.02)]),
+          Gradient(colors: [.cyan.opacity(0.3), .cyan.opacity(0.015)]),
           startPoint: CGPoint(x: 0, y: plot.minY),
           endPoint: CGPoint(x: 0, y: plot.maxY)
-        ))
-      context.stroke(curve, with: .color(.blue), style: StrokeStyle(lineWidth: 2, lineJoin: .round))
+        )
+      )
+      context.stroke(
+        curve,
+        with: .color(.cyan),
+        style: StrokeStyle(lineWidth: 2, lineJoin: .round)
+      )
     }
-    .background(
-      Color(nsColor: .controlBackgroundColor).opacity(0.65), in: RoundedRectangle(cornerRadius: 8)
-    )
+    .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 7))
     .accessibilityLabel("Equalizer frequency response")
   }
 
@@ -364,60 +663,12 @@ private struct FrequencyResponseView: View {
   }
 }
 
-private struct WaveformPanel: View {
-  @ObservedObject var monitor: WaveformMonitor
-  let isRunning: Bool
-
-  private var snapshot: WaveformSnapshot { monitor.snapshot }
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack {
-        VStack(alignment: .leading, spacing: 2) {
-          Text("Post-DSP waveform")
-            .font(.headline)
-          Text("Actual output samples · fixed ±1.0 full-scale · no visual normalization")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-        }
-        Spacer()
-        channelKey("L", color: .cyan, peak: snapshot.leftPeakDBFS, rms: snapshot.leftRMSDBFS)
-        channelKey("R", color: .purple, peak: snapshot.rightPeakDBFS, rms: snapshot.rightRMSDBFS)
-      }
-
-      WaveformCanvas(snapshot: snapshot)
-        .frame(height: 128)
-        .overlay(alignment: .center) {
-          if !isRunning {
-            Text("Start sound to monitor the processed output")
-              .font(.caption)
-              .foregroundStyle(.secondary)
-              .padding(.horizontal, 10)
-              .padding(.vertical, 6)
-              .background(.regularMaterial, in: Capsule())
-          }
-        }
-    }
-    .panelStyle()
-  }
-
-  private func channelKey(_ label: String, color: Color, peak: Float, rms: Float) -> some View {
-    HStack(spacing: 6) {
-      Circle().fill(color).frame(width: 7, height: 7)
-      Text(label).font(.caption.weight(.semibold))
-      Text(String(format: "P %.1f  R %.1f dBFS", peak, rms))
-        .font(.caption.monospacedDigit())
-        .foregroundStyle(.secondary)
-    }
-  }
-}
-
 private struct WaveformCanvas: View {
   let snapshot: WaveformSnapshot
 
   var body: some View {
     Canvas { context, size in
-      let rect = CGRect(origin: .zero, size: size).insetBy(dx: 1, dy: 8)
+      let rect = CGRect(origin: .zero, size: size).insetBy(dx: 1, dy: 6)
       for amplitude: Float in [-1, -0.5, 0, 0.5, 1] {
         let y = rect.midY - CGFloat(amplitude) * rect.height / 2
         var line = Path()
@@ -425,22 +676,22 @@ private struct WaveformCanvas: View {
         line.addLine(to: CGPoint(x: rect.maxX, y: y))
         context.stroke(
           line,
-          with: .color(.secondary.opacity(amplitude == 0 ? 0.32 : 0.12)),
+          with: .color(.secondary.opacity(amplitude == 0 ? 0.34 : 0.13)),
           lineWidth: amplitude == 0 ? 1 : 0.5
         )
       }
       draw(samples: snapshot.left, color: .cyan, in: rect, context: &context)
-      draw(samples: snapshot.right, color: .purple.opacity(0.85), in: rect, context: &context)
+      draw(samples: snapshot.right, color: .purple.opacity(0.9), in: rect, context: &context)
     }
     .background(
       LinearGradient(
-        colors: [Color.black.opacity(0.28), Color.black.opacity(0.15)],
+        colors: [Color.black.opacity(0.45), Color.black.opacity(0.24)],
         startPoint: .top,
         endPoint: .bottom
       ),
-      in: RoundedRectangle(cornerRadius: 8)
+      in: RoundedRectangle(cornerRadius: 7)
     )
-    .clipShape(RoundedRectangle(cornerRadius: 8))
+    .clipShape(RoundedRectangle(cornerRadius: 7))
     .accessibilityLabel("Live post-DSP stereo waveform")
   }
 
@@ -463,21 +714,49 @@ private struct WaveformCanvas: View {
   }
 }
 
-private struct PanelStyle: ViewModifier {
+private struct MixerTitle: View {
+  let title: String
+  let systemImage: String
+
+  init(_ title: String, systemImage: String) {
+    self.title = title
+    self.systemImage = systemImage
+  }
+
+  var body: some View {
+    Label(title, systemImage: systemImage)
+      .font(.system(size: 11, weight: .bold, design: .rounded))
+      .tracking(0.6)
+  }
+}
+
+private struct MixerPanelStyle: ViewModifier {
+  let compact: Bool
+
   func body(content: Content) -> some View {
     content
-      .padding(16)
-      .background(.background.secondary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-      .overlay(
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-          .stroke(.separator.opacity(0.55), lineWidth: 0.5)
+      .padding(compact ? 10 : 14)
+      .background(
+        LinearGradient(
+          colors: [
+            Color(nsColor: .controlBackgroundColor).opacity(0.96), Color.black.opacity(0.12),
+          ],
+          startPoint: .top,
+          endPoint: .bottom
+        ),
+        in: RoundedRectangle(cornerRadius: compact ? 10 : 13, style: .continuous)
       )
+      .overlay(
+        RoundedRectangle(cornerRadius: compact ? 10 : 13, style: .continuous)
+          .stroke(.separator.opacity(0.7), lineWidth: 0.6)
+      )
+      .shadow(color: .black.opacity(0.12), radius: 7, y: 3)
   }
 }
 
 extension View {
-  fileprivate func panelStyle() -> some View {
-    modifier(PanelStyle())
+  fileprivate func mixerPanel(compact: Bool) -> some View {
+    modifier(MixerPanelStyle(compact: compact))
   }
 }
 

@@ -145,6 +145,7 @@ public struct DSPSettings: Codable, Equatable, Sendable {
 
 public enum SoundPreset: String, CaseIterable, Codable, Identifiable, Sendable {
   case whole = "Whole"
+  case club = "Club"
   case wide = "Wide"
   case gentle = "Gentle"
 
@@ -154,6 +155,15 @@ public enum SoundPreset: String, CaseIterable, Codable, Identifiable, Sendable {
     switch self {
     case .whole:
       DSPSettings()
+    case .club:
+      DSPSettings(
+        width: 1.26,
+        inputGainDB: 1.4,
+        equalizerGainsDB: [1.4, 2.2, 1.5, 0.1, -0.8, -0.4, 0.7, 1.2, 1.0, 0.3],
+        compressionThresholdDB: -19,
+        compressionRatio: 2.2,
+        saturation: 0.15
+      )
     case .wide:
       DSPSettings(
         width: 1.48,
