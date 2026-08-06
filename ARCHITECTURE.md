@@ -31,6 +31,10 @@ not write a log message.
 The app never changes the macOS default output. It does not install an Audio
 Server plug-in. It does not keep a helper process active after the app quits.
 
+`PreferencesStore` saves the selected preset and controls. `ProductMetricsStore`
+saves local product health counters. Both stores use the application defaults
+domain. Neither store runs in the real-time audio callback.
+
 ## OpenSoundstageApp
 
 This target provides the SwiftUI window and menu bar control. `AppModel` owns

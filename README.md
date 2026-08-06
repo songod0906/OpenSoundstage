@@ -4,15 +4,13 @@ OpenSoundstage makes macOS audio wider and more coherent. It uses a native
 Core Audio tap and a small real-time DSP pipeline. It does not install a
 permanent audio driver.
 
+<img src="Resources/AppIcon.png" width="128" alt="OpenSoundstage app icon">
+
 The first release has three presets:
 
 - **Whole** adds body, presence, air, stereo width, and controlled gain.
 - **Wide** increases width and air for spacious mixes.
 - **Gentle** uses lighter processing for long listening sessions.
-
-OpenSoundstage is a clean-room project. It is not affiliated with Boom 3D or
-Global Delight. It does not contain Boom code, presets, calibration data, or
-other proprietary assets.
 
 ## Requirements
 
@@ -35,7 +33,7 @@ Developer ID certificate and notarize the app.
 
 ## Use the app
 
-1. Quit Boom and other system audio enhancers.
+1. Stop other system audio processors.
 2. Open `dist/OpenSoundstage.app`.
 3. Select a preset.
 4. Adjust the controls if necessary.
@@ -65,6 +63,16 @@ The DSP pipeline applies these stages:
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
 
+## Privacy and product health
+
+OpenSoundstage does not send analytics or audio. It keeps a small product
+health report on the Mac. The report has launch, route, and listening-time
+counters. It does not include audio, device names, file names, or personal
+identifiers.
+
+Select **Product health** to view, copy, or reset the report. Read
+[PRIVACY.md](PRIVACY.md) for the complete data policy.
+
 ## Safety notes
 
 - Start with a low hardware volume.
@@ -84,6 +92,9 @@ with a Bluetooth output and four CPU load workers.
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before you send a change. Report a
 security problem as described in [SECURITY.md](SECURITY.md).
+
+The product brief, customer journey, metrics, and release gates are in
+[docs/](docs/PRODUCT.md).
 
 ## License
 

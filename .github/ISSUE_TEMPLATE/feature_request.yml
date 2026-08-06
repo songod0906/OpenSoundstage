@@ -1,0 +1,39 @@
+name: Product request
+description: Propose a change that improves a measured user outcome.
+title: "[Product]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: user
+    attributes:
+      label: User and context
+      description: Who has the problem, and during which journey stage?
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the problem without prescribing a feature.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Add user observations, measurements, or repeated support cases.
+    validations:
+      required: true
+  - type: input
+    id: measure
+    attributes:
+      label: Success measure
+    validations:
+      required: true

@@ -1,0 +1,29 @@
+# Customer journey
+
+The primary journey starts with a listener who dislikes the default system mix
+or an unstable audio setup.
+
+| Stage | User question | Product response | Success signal | Main risk |
+| --- | --- | --- | --- | --- |
+| Discover | Will this make music feel more complete? | State one clear sound promise. | User opens the project or app. | Vague audio claims. |
+| Evaluate | Will this damage or complicate my setup? | Explain the private route and local processing. | User starts the app. | Fear of permanent drivers. |
+| Permit | Why does the app need system audio access? | Show a precise local-processing reason. | Permission is granted. | Permission denial. |
+| Activate | Can I hear a useful result now? | Start with the Whole preset and one button. | First successful start. | Silence or route failure. |
+| Tune | Can I make this sound like mine? | Offer five bounded controls and three presets. | A setting changes and persists. | Too many controls. |
+| Rely | Can I use it every day? | Recover from output, sleep, and wake changes. | Repeated successful sessions. | Pops, stale routes, or high CPU. |
+| Recover | What do I do if sound stops? | Stop cleanly and show a useful error. | Next start succeeds. | Daemon restart becomes routine. |
+| Advocate | Can I trust and recommend it? | Publish code, tests, privacy policy, and releases. | Useful issue, star, or referral. | Claims exceed evidence. |
+
+## First-run acceptance path
+
+1. Open the app.
+2. Read the sound promise and route status.
+3. Select **Start sound**.
+4. Grant system audio access.
+5. Hear the Whole preset.
+6. Play music for ten minutes.
+7. Stop sound.
+8. Confirm that normal output continues.
+
+The first run fails if the user must restart Core Audio, repair an aggregate
+device, or search for a hidden helper.

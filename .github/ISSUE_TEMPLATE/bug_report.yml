@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a reproducible product or audio-route problem.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: State what happened and why it blocked your listening task.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open OpenSoundstage.
+        2. Select Start sound.
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Mac and output connection type
+      placeholder: Apple silicon Mac, Bluetooth output
+    validations:
+      required: true
+  - type: textarea
+    id: health
+    attributes:
+      label: Local product health report
+      description: Optional. Copy it from Product health in the app.
+      render: json
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed private audio, credentials, and unrelated logs.
+          required: true

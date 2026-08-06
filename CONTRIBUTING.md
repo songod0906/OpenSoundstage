@@ -16,11 +16,11 @@ Use short sentences. Use active voice. Use one term for one item. Do not claim
 ASD-STE100 certification. The project only applies selected plain-language
 principles from that specification.
 
-## Clean-room rule
+## Original work
 
-Use public documentation and public open-source repositories. Do not submit
-decompiled code, extracted private presets, calibration tables, icons, names,
-or other proprietary assets from a commercial audio product.
+Submit original work or code that has a compatible open-source license. Add a
+notice for third-party code. Do not submit private code, private data, or
+proprietary assets.
 
 ## Commit rule
 
