@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+      - name: Show the Swift version
+        run: swift --version
+      - name: Run the test suite
+        run: swift test
+      - name: Build a release app
+        run: Scripts/build-app.sh
