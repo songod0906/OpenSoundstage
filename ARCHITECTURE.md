@@ -29,7 +29,7 @@ These choices remove transcendental math from the per-frame hot path.
 
 This target provides a bounded stereo ring for the waveform monitor. The audio
 callback writes IEEE 754 sample bits into C11 atomic slots and publishes one
-write cursor. The user interface copies the latest frames at 30 Hz. The writer
+write cursor. The user interface copies the latest frames at 15 Hz. The writer
 does not allocate, wait, or take a lock.
 
 ## OpenSoundstageCore
