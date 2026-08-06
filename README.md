@@ -6,10 +6,14 @@ permanent audio driver.
 
 <img src="Resources/AppIcon.png" width="128" alt="OpenSoundstage app icon">
 
-The app includes four starting presets and a complete 10-band equalizer:
+The app includes eight restrained starting presets and a complete 10-band equalizer:
 
 - **Whole** adds weight, clarity, stereo width, and controlled gain.
 - **Club** adds focused low-end punch, restrained low-mid space, and controlled drive.
+- **Bass** deepens low frequencies without an extreme boost.
+- **Voice** improves dialogue, podcast, and vocal presence.
+- **Night** reduces dynamic jumps and keeps extra limiter headroom for quiet listening.
+- **Detail** adds definition while keeping the low end restrained.
 - **Wide** opens the stereo image and lifts high-frequency detail.
 - **Gentle** uses lighter processing for long listening sessions.
 
@@ -17,7 +21,9 @@ The equalizer has bands at 32, 64, 125, 250, 500, 1k, 2k, 4k, 8k, and
 16k Hz. The response graph is calculated from the same biquad coefficients
 that process the audio. The live stereo waveform and peak/RMS meters use the
 actual post-DSP samples. The waveform uses a fixed full-scale axis and does not
-normalize its shape for display.
+normalize its shape for display. A Hann-windowed 2,048-frame FFT draws the live
+post-DSP spectrum behind the coefficient-derived EQ response. Presets are also
+available from the menu bar when processing is stopped.
 
 ## Requirements
 
@@ -36,7 +42,10 @@ open dist/OpenSoundstage.app
 ```
 
 The build script creates an ad hoc signed app. For distribution, use an Apple
-Developer ID certificate and notarize the app.
+Developer ID certificate and notarize the app. The first start can trigger
+macOS's System Audio Recording prompt. Locally rebuilt, ad-hoc signed copies can
+prompt again because their signing identity changes; a Developer ID signed
+release keeps a stable identity.
 
 ## Use the app
 
@@ -66,7 +75,7 @@ The DSP pipeline applies these stages:
 3. Mid-side stereo width
 4. Stereo-linked compression
 5. Soft saturation
-6. Stereo-linked output limiting at -1 dBFS
+6. Stereo-linked output limiting at the profile ceiling (-1 or -2 dBFS)
 
 Processed samples also enter a bounded lock-free monitoring ring. The user
 interface reads only a copy of the latest samples. It never blocks the audio
@@ -77,9 +86,9 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for more information.
 ## Privacy and product health
 
 OpenSoundstage does not send analytics or audio. It keeps a small product
-health report on the Mac. The report has launch, route, and listening-time
-counters. It does not include audio, device names, file names, or personal
-identifiers.
+health report on the Mac. The report has launch, route, listening-time, and
+preset-selection counters. It does not include audio, device names, file names,
+or personal identifiers.
 
 Select **Product health** to view, copy, or reset the report. Read
 [PRIVACY.md](PRIVACY.md) for the complete data policy.
@@ -97,8 +106,9 @@ Select **Product health** to view, copy, or reset the report. Read
 
 The automated suite covers silence, mono compatibility, stereo width, limiter
 ceiling, EQ coefficient response, preference migration, waveform sample
-integrity, and dBFS meter math. See the latest GitHub Actions run for the
-published commit. Manual playback results are stated in each release note.
+integrity, dBFS meter math, preset safety bounds, and FFT frequency/level
+calibration. See the latest GitHub Actions run for the published commit. Manual
+playback results are stated in each release note.
 
 ## Contribute
 

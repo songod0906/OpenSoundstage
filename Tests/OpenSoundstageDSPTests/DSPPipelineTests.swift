@@ -117,6 +117,73 @@ final class DSPPipelineTests: XCTestCase {
     )
   }
 
+  func testBuiltInPresetsStayInsideConservativeGainAndLimiterBounds() {
+    for preset in SoundPreset.allCases {
+      let settings = preset.settings
+      XCTAssertLessThanOrEqual(
+        settings.equalizerGainsDB.max() ?? 0,
+        3,
+        "\(preset.rawValue) uses an excessive EQ boost"
+      )
+      XCTAssertLessThanOrEqual(
+        settings.inputGainDB,
+        2.2,
+        "\(preset.rawValue) uses excessive input gain"
+      )
+      XCTAssertLessThanOrEqual(
+        settings.outputCeilingDB,
+        -1,
+        "\(preset.rawValue) needs at least 1 dB of limiter headroom"
+      )
+    }
+  }
+
+  func testTaskPresetsEmphasizeTheirIntendedRanges() {
+    let bass = SoundPreset.bass.settings
+    XCTAssertGreaterThan(
+      DSPPipeline.equalizerResponseDB(at: 64, sampleRate: 48_000, settings: bass),
+      DSPPipeline.equalizerResponseDB(at: 1_000, sampleRate: 48_000, settings: bass) + 2
+    )
+
+    let voice = SoundPreset.voice.settings
+    XCTAssertGreaterThan(
+      DSPPipeline.equalizerResponseDB(at: 2_000, sampleRate: 48_000, settings: voice),
+      DSPPipeline.equalizerResponseDB(at: 64, sampleRate: 48_000, settings: voice) + 3
+    )
+
+    XCTAssertEqual(SoundPreset.night.settings.compressionRatio, 3)
+    XCTAssertEqual(SoundPreset.night.settings.outputCeilingDB, -2)
+  }
+
+  func testSpectrumAnalyzerFindsBinAlignedToneAtFullScaleLevel() throws {
+    let frameCount = 2_048
+    let sampleRate: Float = 48_000
+    let frequency = sampleRate / Float(frameCount) * 40
+    let samples = (0..<frameCount).map { index in
+      sin(2 * Float.pi * frequency * Float(index) / sampleRate) * 0.5
+    }
+    let analyzer = try XCTUnwrap(SpectrumAnalyzer(frameCount: frameCount))
+
+    let spectrum = analyzer.analyze(
+      left: samples,
+      right: samples,
+      sampleRate: sampleRate
+    )
+    let peak = try XCTUnwrap(spectrum.points.max { $0.decibels < $1.decibels })
+
+    XCTAssertEqual(peak.frequency, frequency, accuracy: 0.001)
+    XCTAssertEqual(peak.decibels, -6.02, accuracy: 0.15)
+  }
+
+  func testSpectrumAnalyzerKeepsSilenceAtNoiseFloor() throws {
+    let analyzer = try XCTUnwrap(SpectrumAnalyzer(frameCount: 2_048))
+    let silence = [Float](repeating: 0, count: 2_048)
+    let spectrum = analyzer.analyze(left: silence, right: silence, sampleRate: 48_000)
+
+    XCTAssertFalse(spectrum.points.isEmpty)
+    XCTAssertTrue(spectrum.points.allSatisfy { $0.decibels == -96 })
+  }
+
   func testFlatEqualizerResponseIsZeroDecibels() {
     let settings = DSPSettings.neutral
     for frequency: Float in [20, 32, 100, 1_000, 8_000, 20_000] {

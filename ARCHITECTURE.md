@@ -25,6 +25,11 @@ The compressor updates its nonlinear gain calculation every 16 frames and
 smooths gain on every frame. Soft saturation uses a bounded rational curve.
 These choices remove transcendental math from the per-frame hot path.
 
+`SpectrumAnalyzer` runs only on copied monitor samples. It applies a
+denormalized Hann window and a 2,048-point Accelerate real FFT. Its amplitude
+scale is calibrated in tests with a bin-centered sine. No FFT work runs in the
+audio callback.
+
 ## OpenSoundstageRealtime
 
 This target provides a bounded stereo ring for the waveform monitor. The audio
@@ -60,10 +65,10 @@ one audio engine. It stops the route before sleep. It restarts the route after
 wake when necessary. It also restarts the route when the default output
 changes.
 
-`AppModel` reads the latest 512 frames from the monitoring ring at 15 Hz. It
-calculates stereo peak and RMS values in dBFS outside the audio callback. The
-waveform has a fixed ±1.0 full-scale axis. A stopped route produces an empty
-snapshot, not simulated motion.
+`AppModel` reads the latest 2,048 frames from the monitoring ring at 15 Hz. It
+calculates stereo peak and RMS values in dBFS and the live spectrum outside the
+audio callback. The waveform has a fixed ±1.0 full-scale axis. A stopped route
+produces empty waveform and spectrum snapshots, not simulated motion.
 
 ## Failure behavior
 

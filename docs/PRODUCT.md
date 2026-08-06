@@ -38,12 +38,13 @@ without making my audio setup fragile.
 ## Current scope
 
 - One native macOS app
-- Three sound presets
+- Eight task-focused sound presets
 - Ten equalizer bands, stereo width, and input gain
 - Coefficient-derived frequency response
-- Post-DSP stereo waveform and dBFS meters
+- Post-DSP stereo waveform, calibrated spectrum, and dBFS meters
+- Menu bar preset access
 - One temporary private route
-- Local product health counters
+- Local product health and preset-selection counters
 - Bluetooth and built-in stereo output support
 
 ## Not in the first release
@@ -57,6 +58,7 @@ without making my audio setup fragile.
 
 ## Release outcome
 
-Version 0.2 makes sound shaping inspectable and precise. Release readiness
-depends on coefficient tests, sample-integrity tests, route reliability, and a
-real playback check. It does not depend on a feature count target.
+Version 0.4 makes common listening jobs one click away and adds calibrated
+spectral feedback. Release readiness depends on coefficient and FFT calibration
+tests, conservative preset bounds, sample-integrity tests, route reliability,
+and a real playback check. It does not depend on a feature count target.

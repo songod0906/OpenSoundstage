@@ -34,8 +34,10 @@ struct ContentView: View {
         .frame(maxWidth: .infinity)
 
         ResponseDeck(
+          monitor: model.waveformMonitor,
           settings: model.settings,
           sampleRate: model.sampleRate,
+          isRunning: model.isRunning,
           compact: layout.isCompact
         )
         .frame(width: layout.responseWidth)
@@ -250,20 +252,27 @@ private struct StereoMeter: View {
 }
 
 private struct ResponseDeck: View {
+  @ObservedObject var monitor: WaveformMonitor
   let settings: DSPSettings
   let sampleRate: Float
+  let isRunning: Bool
   let compact: Bool
 
   var body: some View {
     VStack(alignment: .leading, spacing: compact ? 6 : 9) {
       HStack {
-        MixerTitle("RESPONSE", systemImage: "chart.xyaxis.line")
+        MixerTitle("SPECTRUM + EQ", systemImage: "waveform.badge.magnifyingglass")
         Spacer()
-        Text("Q 1.1")
+        Text(isRunning ? "LIVE · Q 1.1" : "Q 1.1")
           .font(.caption2.monospaced())
-          .foregroundStyle(.secondary)
+          .foregroundStyle(isRunning ? Color.orange : Color.secondary)
       }
-      FrequencyResponseView(settings: settings, sampleRate: sampleRate)
+      FrequencyResponseView(
+        settings: settings,
+        spectrum: monitor.spectrum,
+        sampleRate: sampleRate,
+        isRunning: isRunning
+      )
       HStack {
         Text("20 Hz")
         Spacer()
@@ -364,6 +373,12 @@ private struct MasterStrip: View {
       .frame(maxWidth: .infinity)
       .disabled(model.isRunning)
 
+      Label(model.preset.summary, systemImage: model.preset.systemImage)
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .lineLimit(2)
+        .frame(maxWidth: .infinity, minHeight: compact ? 24 : 28, alignment: .topLeading)
+
       HStack(spacing: compact ? 5 : 10) {
         RotaryDial(
           title: "WIDTH",
@@ -399,7 +414,10 @@ private struct MasterStrip: View {
         chainItem("EQ", active: true)
         chainItem("STEREO", active: model.settings.width > 1.001)
         chainItem("DYNAMICS", active: true)
-        chainItem("LIMIT −1 DBFS", active: true)
+        chainItem(
+          String(format: "LIMIT %.0f DBFS", model.settings.outputCeilingDB),
+          active: true
+        )
       }
 
       Spacer(minLength: 0)
@@ -410,6 +428,11 @@ private struct MasterStrip: View {
           .foregroundStyle(.red)
           .lineLimit(2)
           .textSelection(.enabled)
+      } else if let notice = model.captureNotice {
+        Label(notice, systemImage: "waveform.badge.exclamationmark")
+          .font(.caption2)
+          .foregroundStyle(.orange)
+          .lineLimit(3)
       } else {
         Text(
           model.isRunning
@@ -577,7 +600,9 @@ private struct VerticalEQSlider: View {
 
 private struct FrequencyResponseView: View {
   let settings: DSPSettings
+  let spectrum: SpectrumSnapshot
   let sampleRate: Float
+  let isRunning: Bool
 
   var body: some View {
     Canvas { context, size in
@@ -608,6 +633,10 @@ private struct FrequencyResponseView: View {
         line.move(to: CGPoint(x: x, y: plot.minY))
         line.addLine(to: CGPoint(x: x, y: plot.maxY))
         context.stroke(line, with: .color(.secondary.opacity(0.12)), lineWidth: 0.5)
+      }
+
+      if isRunning {
+        drawSpectrum(in: plot, context: &context)
       }
 
       var fill = Path()
@@ -650,7 +679,51 @@ private struct FrequencyResponseView: View {
       )
     }
     .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 7))
-    .accessibilityLabel("Equalizer frequency response")
+    .accessibilityLabel(
+      isRunning
+        ? "Live post-DSP frequency spectrum with equalizer response"
+        : "Equalizer frequency response"
+    )
+  }
+
+  private func drawSpectrum(in plot: CGRect, context: inout GraphicsContext) {
+    let points = spectrum.points.filter { $0.frequency >= 20 && $0.frequency <= 20_000 }
+    guard let first = points.first, let last = points.last else { return }
+
+    var curve = Path()
+    var fill = Path()
+    let firstPoint = CGPoint(
+      x: xPosition(first.frequency, in: plot),
+      y: spectrumYPosition(first.decibels, in: plot)
+    )
+    curve.move(to: firstPoint)
+    fill.move(to: CGPoint(x: firstPoint.x, y: plot.maxY))
+    fill.addLine(to: firstPoint)
+
+    for point in points.dropFirst() {
+      let position = CGPoint(
+        x: xPosition(point.frequency, in: plot),
+        y: spectrumYPosition(point.decibels, in: plot)
+      )
+      curve.addLine(to: position)
+      fill.addLine(to: position)
+    }
+
+    fill.addLine(to: CGPoint(x: xPosition(last.frequency, in: plot), y: plot.maxY))
+    fill.closeSubpath()
+    context.fill(
+      fill,
+      with: .linearGradient(
+        Gradient(colors: [.orange.opacity(0.42), .orange.opacity(0.02)]),
+        startPoint: CGPoint(x: 0, y: plot.minY),
+        endPoint: CGPoint(x: 0, y: plot.maxY)
+      )
+    )
+    context.stroke(
+      curve,
+      with: .color(.orange.opacity(0.9)),
+      style: StrokeStyle(lineWidth: 1.2, lineJoin: .round)
+    )
   }
 
   private func xPosition(_ frequency: Float, in rect: CGRect) -> CGFloat {
@@ -660,6 +733,11 @@ private struct FrequencyResponseView: View {
   private func yPosition(_ decibels: Float, in rect: CGRect) -> CGFloat {
     let clipped = min(max(decibels, -12), 12)
     return rect.midY - CGFloat(clipped / 24) * rect.height
+  }
+
+  private func spectrumYPosition(_ decibels: Float, in rect: CGRect) -> CGFloat {
+    let clipped = min(max(decibels, -72), 0)
+    return rect.maxY - CGFloat((clipped + 72) / 72) * rect.height
   }
 }
 
@@ -790,6 +868,10 @@ struct ProductHealthView: View {
         )
         metric("Route failures", value: "\(model.metrics.failedStarts)")
         metric("Output changes", value: "\(model.metrics.outputChanges)")
+        metric(
+          "Most selected profile",
+          value: model.metrics.presetSelections.max { $0.value < $1.value }?.key ?? "—"
+        )
       }
 
       HStack {
@@ -827,6 +909,19 @@ struct MenuContent: View {
     Button(model.isRunning ? "Stop sound" : "Start sound") {
       model.toggle()
     }
+    Menu("Sound profile: \(model.preset.rawValue)") {
+      ForEach(SoundPreset.allCases) { preset in
+        Button {
+          model.preset = preset
+        } label: {
+          Label(
+            preset.rawValue,
+            systemImage: preset == model.preset ? "checkmark" : preset.systemImage
+          )
+        }
+      }
+    }
+    .disabled(model.isRunning)
     Button("Show OpenSoundstage") {
       NSApplication.shared.activate(ignoringOtherApps: true)
       NSApplication.shared.windows.first?.makeKeyAndOrderFront(nil)

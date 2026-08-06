@@ -8,6 +8,7 @@ import SwiftUI
 
 final class WaveformMonitor: ObservableObject {
   @Published fileprivate(set) var snapshot = WaveformSnapshot.silence
+  @Published fileprivate(set) var spectrum = SpectrumSnapshot.silence
 }
 
 final class AppModel: ObservableObject {
@@ -15,6 +16,9 @@ final class AppModel: ObservableObject {
     didSet {
       guard !isRunning else { return }
       settings = preset.settings
+      if preset != oldValue {
+        metrics = metricsStore.update { $0.recordPresetSelection(preset.rawValue) }
+      }
       savePreferences()
     }
   }
@@ -26,6 +30,7 @@ final class AppModel: ObservableObject {
   }
   @Published private(set) var isRunning = false
   @Published private(set) var status = "Ready"
+  @Published private(set) var captureNotice: String?
   @Published private(set) var outputName = "Default output"
   @Published private(set) var sampleRate: Float = 48_000
   @Published var errorMessage: String?
@@ -34,10 +39,12 @@ final class AppModel: ObservableObject {
   let waveformMonitor = WaveformMonitor()
 
   private let engine = SystemAudioEngine()
+  private let spectrumAnalyzer = SpectrumAnalyzer(frameCount: 2_048)
   private let preferencesStore = PreferencesStore()
   private let metricsStore = ProductMetricsStore()
   private var shouldRestartAfterWake = false
   private var sessionStartedAt: Date?
+  private var hasReceivedAudio = false
   private var waveformTimer: Timer?
 
   init() {
@@ -70,8 +77,20 @@ final class AppModel: ObservableObject {
     waveformTimer = Timer.scheduledTimer(withTimeInterval: 1 / 15, repeats: true) {
       [weak self] _ in
       guard let self else { return }
-      waveformMonitor.snapshot =
-        isRunning ? engine.waveformSnapshot(maximumFrameCount: 512) : .silence
+      guard isRunning else {
+        waveformMonitor.snapshot = .silence
+        waveformMonitor.spectrum = .silence
+        return
+      }
+      let snapshot = engine.waveformSnapshot(maximumFrameCount: 2_048)
+      waveformMonitor.snapshot = snapshot
+      waveformMonitor.spectrum =
+        spectrumAnalyzer?.analyze(
+          left: snapshot.left,
+          right: snapshot.right,
+          sampleRate: sampleRate
+        ) ?? .silence
+      updateCaptureReadiness(from: snapshot)
     }
   }
 
@@ -83,13 +102,15 @@ final class AppModel: ObservableObject {
     metrics = metricsStore.update { $0.recordStartAttempt() }
     do {
       errorMessage = nil
+      captureNotice = nil
       status = "Starting"
       try engine.start(settings: settings)
       isRunning = true
       sessionStartedAt = Date()
       outputName = engine.outputDeviceName
       sampleRate = engine.sampleRate
-      status = "Sound is enhanced"
+      hasReceivedAudio = false
+      status = "Waiting for audio"
       metrics = metricsStore.update { $0.recordSuccessfulStart() }
     } catch {
       engine.stop()
@@ -106,6 +127,8 @@ final class AppModel: ObservableObject {
     engine.stop()
     finishSession()
     isRunning = false
+    hasReceivedAudio = false
+    captureNotice = nil
     status = "Ready"
   }
 
@@ -151,6 +174,23 @@ final class AppModel: ObservableObject {
     preferencesStore.save(
       AppPreferences(preset: preset, settings: settings)
     )
+  }
+
+  private func updateCaptureReadiness(from snapshot: WaveformSnapshot) {
+    guard !hasReceivedAudio else { return }
+    if max(snapshot.leftPeakDBFS, snapshot.rightPeakDBFS) > -90 {
+      hasReceivedAudio = true
+      captureNotice = nil
+      status = "Sound is enhanced"
+      return
+    }
+    guard
+      let sessionStartedAt,
+      Date().timeIntervalSince(sessionStartedAt) >= 6
+    else { return }
+    status = "Waiting for system audio"
+    captureNotice =
+      "Play something, then allow System Audio Recording if macOS asks."
   }
 
   private func finishSession() {
